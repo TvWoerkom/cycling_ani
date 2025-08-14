@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Route Viewer</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; 
+            padding: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 960px;
+            width:  540px;
+        }
+        .container {
+            width: 540px;
+            height: 960px;
+            margin: 5px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            box-shadow: 0 20px 24px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            padding: 0px;
+        }
+        .map-container {
+            background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 10px;
+            padding: 0px;
+            height: 100%;
+            width: 100%;
+        }
+        #map {
+            width: 100%;
+            height: 400px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 5px;
+        }
+        #elevation-profile {
+            width: 100%;
+            height: 200px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            margin: 0 0 5px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-size: 16px;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc2626;
+            font-size: 16px;
+            background-color: #fef2f2;
+            border-radius: 8px;
+            margin: 20px;
+        }
+        .route-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 0;
+            background: none;
+            border-radius: 0;
+            font-size: 14px;
+            color: #475569;
+        }
+        .route-info > div {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+            padding: 5px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .route-info span {
+            font-weight: 700;
+            color: #ff6b6b;
+            font-size: 18px;
+            display: block;
+            margin-top: 8px;
+        }
+        .lorem-text {
+            margin: 10px 0 0 0;
+            padding: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+            backdrop-filter: blur(10px);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #475569;
+        }
+        .lorem-text p {
+            margin: 0 0 12px 0;
+        }
+        .lorem-text p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div class="container">
+        <div class="map-container">
+            <div id="output" class="loading">Loading GPX route...</div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="gpxStatsCalculator.js"></script>
+    
+    <script>
+        async function showGpxRoute() {
+            const fileName = localStorage.getItem('gpxFileName');
+            const output = document.getElementById('output');
+            
+            if (!fileName) {
+                output.innerHTML = '<div class="error">No GPX file name found in localStorage.</div>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(fileName);
+                if (!response.ok) throw new Error('File not found or cannot be loaded.');
+                
+                const text = await response.text();
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(text, "application/xml");
+                const trkpts = Array.from(xml.getElementsByTagName('trkpt'));
+                
+                if (trkpts.length < 2) {
+                    output.innerHTML = '<div class="error">Not enough track points in GPX file.</div>';
+                    return;
+                }
+
+                // Extract the route name from the GPX file
+                const nameElement = xml.getElementsByTagName('name')[0];
+                const routeName = nameElement ? nameElement.textContent : 'Unnamed Route';
+
+                // Create and insert the title element above the route stats
+                const titleElement = document.createElement('h1');
+                titleElement.textContent = routeName;
+                titleElement.style.textAlign = 'center';
+                titleElement.style.margin = '10px 0';
+                titleElement.style.color = '#475569';
+                titleElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                titleElement.style.fontSize = '20px';
+
+                // Extract coordinates
+                const lats = trkpts.map(pt => parseFloat(pt.getAttribute('lat')));
+                const lons = trkpts.map(pt => parseFloat(pt.getAttribute('lon')));
+                
+                // Calculate route statistics using GpxStatsCalculator
+                const statsCalculator = new GpxStatsCalculator();
+                const stats = statsCalculator.calculateStats(trkpts);
+
+                // Create route info display
+                const routeInfo = document.createElement('div');
+                routeInfo.className = 'route-info';
+                
+                // Format duration - use GpxStatsCalculator time properties
+                let durationText = 'N/A';
+                
+                // Try to use the time difference from stats (total elapsed time)
+                if (stats.timeDiffH !== undefined && stats.timeDiffM !== undefined) {
+                    if (stats.timeDiffH > 0 || stats.timeDiffM > 0) {
+                        durationText = stats.timeDiffH > 0 ? `${stats.timeDiffH}h ${stats.timeDiffM}m` : `${stats.timeDiffM}m`;
+                    }
+                } else if (stats.timeDiffMs && !isNaN(stats.timeDiffMs) && stats.timeDiffMs > 0) {
+                    // Fallback: calculate from timeDiffMs if H/M properties aren't available
+                    const totalMinutes = Math.round(stats.timeDiffMs / (1000 * 60));
+                    const hours = Math.floor(totalMinutes / 60);
+                    const minutes = totalMinutes % 60;
+                    durationText = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                }
+                
+                routeInfo.innerHTML = `
+                    <div>Total Distance <span id="distance-value">0.0 km</span></div>
+                    <div>Elevation Gain <span id="elevation-value">0 m</span></div>
+                    <div>Moving Speed <span id="speed-value">0.0 km/h</span></div>
+                    <div>Total Duration <span id="duration-value">0m</span></div>
+                `;
+
+                // Store final values for animation
+                window.routeStats = {
+                    totalDistance: stats.totalDist,
+                    totalElevation: Math.round(stats.totalAsc),
+                    avgSpeed: stats.avgSpeedMoving,
+                    durationText: durationText
+                };
+
+                // AI text generation removed
+                // Create map and elevation elements
+                const mapDiv = document.createElement('div');
+                mapDiv.id = 'map';
+                const elevationCanvas = document.createElement('canvas');
+                elevationCanvas.id = 'elevation-profile';
+
+                // Replace loading message with title, route info, map, and elevation profile
+                output.innerHTML = '';
+                output.appendChild(titleElement);
+                output.appendChild(routeInfo);
+                output.appendChild(mapDiv);
+                output.appendChild(elevationCanvas);
+
+                // Initialize the map and elevation profile with animation
+                createRouteMap(lats, lons, trkpts);
+                startSynchronizedAnimation(trkpts, elevationCanvas);
+
+            } catch (e) {
+                output.innerHTML = `<div class="error">Error loading GPX file: ${e.message}</div>`;
+            }
+        }
+
+        function createRouteMap(lats, lons, trkpts) {
+            // Calculate center point
+            const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+            const centerLon = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+            // Create static map with all interactions disabled
+            const map = L.map('map', {
+                zoomControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+                tap: false,
+                touchZoom: false,
+                attributionControl: false
+            }).setView([centerLat, centerLon], 13);
+
+            // Add tile layer (OpenStreetMap)
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Create route line in grey
+            const routeCoords = lats.map((lat, i) => [lat, lons[i]]);
+            const routeLine = L.polyline(routeCoords, {
+                color: '#9ca3af',
+                weight: 4,
+                opacity: 0.6,
+                smoothFactor: 1.0
+            }).addTo(map);
+
+            // Create orange traveled line (initially empty)
+            const traveledLine = L.polyline([], {
+                color: '#ff6b6b',
+                weight: 4,
+                opacity: 0.8,
+                smoothFactor: 1.0
+            }).addTo(map);
+
+            // Create moving dot (initially hidden)
+            const movingDot = L.circleMarker([lats[0], lons[0]], {
+                color: '#ff6b6b',
+                fillColor: '#ff6b6b',
+                fillOpacity: 1,
+                radius: 8,
+                weight: 3
+            }).addTo(map);
+
+            // Fit map to route bounds
+            map.fitBounds(routeLine.getBounds(), { padding: [20, 20] });
+
+            // Store references for animation
+            window.mapReferences = { map, routeLine, traveledLine, movingDot, routeCoords };
+        }
+
+        // Haversine distance formula for calculating distances between coordinates
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function startSynchronizedAnimation(trkpts, canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            // Extract elevations and timestamps
+            const elevations = trkpts.map(pt => {
+                const eleElement = pt.getElementsByTagName('ele')[0];
+                return eleElement ? parseFloat(eleElement.textContent) : 0;
+            });
+
+            const timestamps = trkpts.map(pt => {
+                const timeElement = pt.getElementsByTagName('time')[0];
+                return timeElement ? new Date(timeElement.textContent).getTime() : null;
+            }).filter(t => t !== null);
+
+            // Calculate cumulative distances and elevation gains for progressive stats
+            const cumulativeDistances = [0];
+            const cumulativeElevationGains = [0];
+            let totalDistance = 0;
+            let totalElevationGain = 0;
+            
+            for (let i = 1; i < trkpts.length; i++) {
+                const lat1 = parseFloat(trkpts[i-1].getAttribute('lat'));
+                const lon1 = parseFloat(trkpts[i-1].getAttribute('lon'));
+                const lat2 = parseFloat(trkpts[i].getAttribute('lat'));
+                const lon2 = parseFloat(trkpts[i].getAttribute('lon'));
+                
+                const segmentDistance = haversineDistance(lat1, lon1, lat2, lon2);
+                totalDistance += segmentDistance;
+                cumulativeDistances.push(totalDistance);
+                
+                // Calculate elevation gain
+                const elevationDiff = elevations[i] - elevations[i-1];
+                if (elevationDiff > 0) {
+                    totalElevationGain += elevationDiff;
+                }
+                cumulativeElevationGains.push(totalElevationGain);
+            }
+
+            // Calculate time-based animation duration
+            let animationDuration = 10000; // Default 10 seconds
+            if (timestamps.length > 1) {
+                const totalTimeMs = timestamps[timestamps.length - 1] - timestamps[0];
+                // Scale to reasonable animation duration (10-30 seconds)
+                animationDuration = Math.min(Math.max(totalTimeMs / 100, 10000), 30000);
+            }
+
+            // Calculate elevation profile coordinates
+            const minEle = Math.min(...elevations);
+            const maxEle = Math.max(...elevations);
+            const eleRange = maxEle - minEle;
+            
+            let interval;
+            if (eleRange <= 50) interval = 10;
+            else if (eleRange <= 100) interval = 20;
+            else if (eleRange <= 200) interval = 25;
+            else if (eleRange <= 500) interval = 50;
+            else if (eleRange <= 1000) interval = 200;
+            else interval = 500;
+            
+            const minGrid = Math.floor(minEle / interval) * interval;
+            const maxGrid = Math.ceil(maxEle / interval) * interval;
+            const gridRange = maxGrid - minGrid;
+            
+            const statsCalculator = new GpxStatsCalculator();
+            const stats = statsCalculator.calculateStats(trkpts);
+            const totalDistanceStats = stats.totalDist;
+
+            const profilePixels = elevations.map((ele, i) => {
+                const marginLeft = 40;
+                const marginRight = 20;
+                const marginTop = 20;
+                const marginBottom = 20;
+                const usableWidth = canvas.width - marginLeft - marginRight;
+                const usableHeight = canvas.height - marginTop - marginBottom;
+                return {
+                    x: marginLeft + (i / (elevations.length - 1)) * usableWidth,
+                    y: marginTop + ((maxGrid - ele) / gridRange) * usableHeight
+                };
+            });
+
+            let startTime = Date.now();
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / animationDuration, 1);
+                const currentIndex = Math.floor(progress * (trkpts.length - 1));
+
+                // Update statistics in real-time
+                updateRouteStatistics(currentIndex, cumulativeDistances, cumulativeElevationGains, timestamps, animationDuration, elapsed);
+
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw background gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(1, '#f8fafc');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw grid
+                drawElevationProfileElements(ctx, 1, minEle, maxEle, elevations.length, totalDistanceStats);
+
+                // Draw elevation profile up to current position
+                if (currentIndex > 0 && profilePixels.length > 0) {
+                    const currentProfilePixels = profilePixels.slice(0, currentIndex + 1);
+                    
+                    // Draw area fill with gradient spanning full elevation range
+                    const marginTop = 20;
+                    const marginBottom = 20;
+                    const fullHeight = canvas.height - marginTop - marginBottom;
+                    const topY = marginTop;
+                    const bottomYFull = marginTop + fullHeight;
+                    const areaGradient = ctx.createLinearGradient(0, bottomYFull, 0, topY);
+                    areaGradient.addColorStop(0, 'rgba(255, 107, 107, 0.4)');
+                    areaGradient.addColorStop(1, 'rgba(255, 107, 107, 0.05)');
+
+                    ctx.fillStyle = areaGradient;
+                    ctx.beginPath();
+                    ctx.moveTo(currentProfilePixels[0].x, bottomYFull);
+                    
+                    currentProfilePixels.forEach(point => {
+                        ctx.lineTo(point.x, point.y);
+                    });
+
+                    ctx.lineTo(currentProfilePixels[currentProfilePixels.length - 1].x, bottomYFull);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Draw elevation line
+                    ctx.shadowColor = 'rgba(255, 107, 107, 0.3)';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowOffsetY = 2;
+                    drawRoute(ctx, currentProfilePixels, '#ff6b6b', 4);
+                    ctx.shadowColor = 'transparent';
+                    ctx.shadowBlur = 0;
+                    ctx.shadowOffsetY = 0;
+
+                    // Draw current position dot on elevation profile
+                    const currentPoint = currentProfilePixels[currentProfilePixels.length - 1];
+                    ctx.fillStyle = '#ff6b6b';
+                    ctx.beginPath();
+                    ctx.arc(currentPoint.x, currentPoint.y, 6, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Update moving dot on map
+                if (window.mapReferences && currentIndex < window.mapReferences.routeCoords.length) {
+                    const currentCoord = window.mapReferences.routeCoords[currentIndex];
+                    window.mapReferences.movingDot.setLatLng(currentCoord);
+                    
+                    // Update traveled line to show orange path behind the dot
+                    const traveledCoords = window.mapReferences.routeCoords.slice(0, currentIndex + 1);
+                    window.mapReferences.traveledLine.setLatLngs(traveledCoords);
+                }
+
+                // Continue animation or finish
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    // Animation complete - show final state
+                    drawFinalElevationProfile(ctx, profilePixels, minEle, maxEle, elevations, totalDistanceStats);
+                    // Show final statistics
+                    if (window.routeStats) {
+                        document.getElementById('distance-value').textContent = `${window.routeStats.totalDistance.toFixed(1)} km`;
+                        document.getElementById('elevation-value').textContent = `${window.routeStats.totalElevation} m`;
+                        document.getElementById('speed-value').textContent = `${window.routeStats.avgSpeed.toFixed(1)} km/h`;
+                        document.getElementById('duration-value').textContent = window.routeStats.durationText;
+                    }
+                }
+            }
+
+            // Start animation after a brief delay
+            setTimeout(() => {
+                animate();
+            }, 1000);
+        }
+
+        function updateRouteStatistics(currentIndex, cumulativeDistances, cumulativeElevationGains, timestamps, animationDuration, elapsed) {
+            if (currentIndex >= cumulativeDistances.length) return;
+
+            // Initialize tracking variables if they don't exist
+            if (!window.statsUpdateTracker) {
+                window.statsUpdateTracker = {
+                    lastDistanceKm: 0,
+                    lastElevationTens: 0,
+                    lastDurationMinute: 0,
+                    speedHistory: [],
+                    lastSpeedUpdate: 0
+                };
+            }
+
+            const tracker = window.statsUpdateTracker;
+            const currentDistance = cumulativeDistances[currentIndex];
+            const currentElevationGain = Math.round(cumulativeElevationGains[currentIndex]);
+
+            // Update distance only at each full kilometer
+            const currentDistanceKm = Math.floor(currentDistance);
+            if (currentDistanceKm > tracker.lastDistanceKm) {
+                document.getElementById('distance-value').textContent = `${currentDistanceKm}.0 km`;
+                tracker.lastDistanceKm = currentDistanceKm;
+            }
+
+            // Update elevation gain every 10 meters
+            const currentElevationTens = Math.floor(currentElevationGain / 10);
+            if (currentElevationTens > tracker.lastElevationTens) {
+                document.getElementById('elevation-value').textContent = `${currentElevationTens * 10} m`;
+                tracker.lastElevationTens = currentElevationTens;
+            }
+
+            // Update duration every minute
+            const progressMinutes = Math.round((elapsed / animationDuration) * (window.routeStats ? 
+                (window.routeStats.durationText.includes('h') ? 
+                    parseInt(window.routeStats.durationText) * 60 + parseInt(window.routeStats.durationText.split('h ')[1]) : 
+                    parseInt(window.routeStats.durationText)) : 60));
+            
+            if (progressMinutes > tracker.lastDurationMinute) {
+                const hours = Math.floor(progressMinutes / 60);
+                const minutes = progressMinutes % 60;
+                const durationDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                document.getElementById('duration-value').textContent = durationDisplay;
+                tracker.lastDurationMinute = progressMinutes;
+            }
+
+            // Calculate moving speed as average over past kilometer (update every 0.5 seconds)
+            const now = Date.now();
+            const shouldUpdateSpeed = now - tracker.lastSpeedUpdate >= 500; // 500ms = 0.5 seconds
+            
+            tracker.speedHistory.push({
+                distance: currentDistance,
+                index: currentIndex,
+                elapsed: elapsed
+            });
+
+            // Keep only points within the last kilometer
+            tracker.speedHistory = tracker.speedHistory.filter(entry => 
+                currentDistance - entry.distance <= 1.0
+            );
+
+            // Calculate actual GPS speed from the past kilometer (only every 0.5 seconds)
+            if (shouldUpdateSpeed && tracker.speedHistory.length >= 2 && timestamps.length > currentIndex) {
+                const oldestEntry = tracker.speedHistory[0];
+                const oldestIndex = oldestEntry.index;
+                
+                // Calculate actual time difference from GPS timestamps
+                if (oldestIndex < timestamps.length && currentIndex < timestamps.length) {
+                    const timeDiffMs = timestamps[currentIndex] - timestamps[oldestIndex];
+                    const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
+                    const distanceDiff = currentDistance - oldestEntry.distance;
+                    
+                    if (timeDiffHours > 0 && distanceDiff > 0) {
+                        const actualSpeedKmh = distanceDiff / timeDiffHours;
+                        // Ensure reasonable bounds for cycling speed
+                        const boundedSpeed = Math.max(1, Math.min(actualSpeedKmh, 80));
+                        document.getElementById('speed-value').textContent = `${boundedSpeed.toFixed(1)} km/h`;
+                        tracker.lastSpeedUpdate = now;
+                    }
+                }
+            } else if (shouldUpdateSpeed && window.routeStats && currentDistance > 0) {
+                // Fallback for very beginning of animation (only every 0.5 seconds)
+                const progressSpeed = window.routeStats.avgSpeed * Math.min(elapsed / (animationDuration * 0.1), 1);
+                document.getElementById('speed-value').textContent = `${progressSpeed.toFixed(1)} km/h`;
+                tracker.lastSpeedUpdate = now;
+            }
+        }
+
+        function drawFinalElevationProfile(ctx, profilePixels, minEle, maxEle, elevations, totalDistance) {
+            // Calculate grid bounds for area fill
+            const eleRange = maxEle - minEle;
+            let interval;
+            if (eleRange <= 50) interval = 10;
+            else if (eleRange <= 80) interval = 10;
+            else if (eleRange <= 200) interval = 25;
+            else if (eleRange <= 400) interval = 50;
+            else if (eleRange <= 800) interval = 100;
+            else if (eleRange <= 1600) interval = 200;
+            else interval = 300;
+            const minGrid = Math.floor(minEle / interval) * interval;
+            const maxGrid = Math.ceil(maxEle / interval) * interval;
+            const gridRange = maxGrid - minGrid;
+
+            // Clear canvas with gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(1, '#f8fafc');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            
+            // Draw grid
+            drawElevationProfileElements(ctx, 1, minEle, maxEle, elevations.length, totalDistance);
+            
+            // Draw elevation area fill
+            if (profilePixels.length > 0) {
+                // Area fill gradient spanning full elevation range
+                const marginTop = 20;
+                const marginBottom = 20;
+                const usableHeight = ctx.canvas.height - marginTop - marginBottom;
+                const topY = marginTop + ((maxGrid - maxEle) / gridRange) * usableHeight;
+                const bottomYFull = marginTop + usableHeight;
+                const areaGradient = ctx.createLinearGradient(0, bottomYFull, 0, topY);
+                areaGradient.addColorStop(0, 'rgba(255, 107, 107, 0.4)');
+                areaGradient.addColorStop(1, 'rgba(255, 107, 107, 0.05)');
+                
+                ctx.fillStyle = areaGradient;
+                ctx.beginPath();
+                ctx.moveTo(profilePixels[0].x, bottomYFull);
+                profilePixels.forEach(point => {
+                    ctx.lineTo(point.x, point.y);
+                });
+                ctx.lineTo(profilePixels[profilePixels.length - 1].x, bottomYFull);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Add glow effect
+                ctx.shadowColor = 'rgba(255, 107, 107, 0.3)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetY = 2;
+            }
+            
+            // Draw elevation line
+            drawRoute(ctx, profilePixels, '#ff6b6b', 4);
+            
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+        }
+
+        function drawRoute(ctx, points, color, width) {
+            if (points.length < 2) return;
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            
+            ctx.stroke();
+        }
+
+        function drawElevationProfileElements(ctx, opacity, minEle, maxEle, pointCount, totalDistance) {
+            ctx.globalAlpha = opacity;
+            
+
+            // Calculate natural elevation intervals
+            const eleRange = maxEle - minEle;
+            let interval;
+            if (eleRange <= 50) interval = 10;
+            else if (eleRange <= 80) interval = 10;
+            else if (eleRange <= 200) interval = 25;
+            else if (eleRange <= 400) interval = 50;
+            else if (eleRange <= 800) interval = 100;
+            else if (eleRange <= 1600) interval = 200;
+            else interval = 300;
+            
+            // Calculate grid bounds
+            const minGrid = Math.floor(minEle / interval) * interval;
+            const maxGrid = Math.ceil(maxEle / interval) * interval;
+            const gridRange = maxGrid - minGrid;
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.6)';
+            ctx.lineWidth = 1;
+            
+            // Horizontal grid lines (elevation)
+            const marginLeft = 40;
+            const marginRight = 20;
+            const marginTop = 20;
+            const marginBottom = 20;
+            const usableWidth = ctx.canvas.width - marginLeft - marginRight;
+            const usableHeight = ctx.canvas.height - marginTop - marginBottom;
+            for (let elevation = minGrid; elevation <= maxGrid; elevation += interval) {
+                const y = marginTop + ((maxGrid - elevation) / gridRange) * usableHeight;
+                ctx.beginPath();
+                ctx.moveTo(marginLeft, y);
+                ctx.lineTo(ctx.canvas.width - marginRight, y);
+                ctx.stroke();
+                
+                // Elevation labels
+                ctx.fillStyle = '#64748b';
+                ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`${elevation}`, marginLeft - 5, y + 4);
+            }
+            // Elevation unit label
+            ctx.fillText('m', marginLeft - 4, marginTop - 8);
+
+            // Vertical grid lines (distance in km)
+            const distanceInterval = totalDistance <= 5 ? 1 : totalDistance <= 20 ? 2 : totalDistance <= 50 ? 5 : 10;
+            const numIntervals = Math.ceil(totalDistance / distanceInterval);
+            
+            for (let i = 0; i <= numIntervals; i++) {
+                const distance = i * distanceInterval;
+                if (distance > totalDistance) break;
+                
+                const x = marginLeft + (distance / totalDistance) * usableWidth;
+                ctx.beginPath();
+                ctx.moveTo(x, marginTop);
+                ctx.lineTo(x, ctx.canvas.height - marginBottom);
+                ctx.stroke();
+                
+                // Distance labels
+                ctx.fillStyle = '#64748b';
+                ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${distance}`, x, ctx.canvas.height - marginBottom + 15);
+            }
+            // Distance unit label
+            ctx.fillText('km', ctx.canvas.width - marginRight, ctx.canvas.height - marginBottom + 15);
+
+            ctx.globalAlpha = 1;
+        }
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function toRad(deg) {
+            return deg * Math.PI / 180;
+        }
+
+        // Load the route when page loads
+        showGpxRoute();
+    </script>
+</body>
+</html>

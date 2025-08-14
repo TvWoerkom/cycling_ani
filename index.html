@@ -1,0 +1,110 @@
+<script>
+// Set the GPX filename in localStorage for use by route-cycling-compex.html
+localStorage.setItem('gpxFileName', 'test.gpx'); // Change 'test.gpx' to your actual GPX filename
+</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GPX File Upload</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            width: 400px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 14px;
+            box-shadow: 0 20px 24px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            padding: 32px 24px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5em;
+        }
+        h1 {
+            text-align: center;
+            color: #475569;
+            font-size: 2em;
+            margin-bottom: 0.5em;
+        }
+        label, button {
+            font-size: 1em;
+        }
+        #uploadBtn {
+            background: #ff6b6b;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: background 0.2s;
+        }
+        #uploadBtn:hover {
+            background: #e53e3e;
+        }
+        #continueBtn {
+            background: #764ba2;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: background 0.2s;
+        }
+        #continueBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+        <div class="container">
+            <h1>GPX Route Loader</h1>
+            <label>
+                <input type="file" id="gpxInput" accept=".gpx" style="display:none">
+                <button id="uploadBtn" type="button">Select GPX File</button>
+                <script>
+                    // Store the file path in localStorage for access in calculating.html
+                    gpxInput.addEventListener('change', () => {
+                        if (gpxInput.files.length > 0) {
+                            // Store the file name (full path is not accessible for security reasons)
+                            localStorage.setItem('gpxFileName', gpxInput.files[0].name);
+                        }
+                    });
+                </script>
+            </label>
+            <button id="continueBtn" type="button" disabled onclick="window.location.href='route-cycling.html'">Continue</button>
+        </div>
+        <script>
+            const gpxInput = document.getElementById('gpxInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const continueBtn = document.getElementById('continueBtn');
+
+            uploadBtn.addEventListener('click', () => {
+                gpxInput.click();
+            });
+
+            gpxInput.addEventListener('change', () => {
+                if (gpxInput.files.length > 0) {
+                    continueBtn.disabled = false;
+                } else {
+                    continueBtn.disabled = true;
+                }
+            });
+        </script>
+</body>
+</html>
