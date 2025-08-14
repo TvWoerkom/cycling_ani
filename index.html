@@ -1,7 +1,3 @@
-<script>
-// Set the GPX filename in localStorage for use by route-cycling-compex.html
-localStorage.setItem('gpxFileName', 'test.gpx'); // Change 'test.gpx' to your actual GPX filename
-</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,7 +30,7 @@ localStorage.setItem('gpxFileName', 'test.gpx'); // Change 'test.gpx' to your ac
         h1 {
             text-align: center;
             color: #475569;
-            font-size: 2em;
+            font-size: 1em;
             margin-bottom: 0.5em;
         }
         label, button {
@@ -72,39 +68,66 @@ localStorage.setItem('gpxFileName', 'test.gpx'); // Change 'test.gpx' to your ac
     </style>
 </head>
 <body>
-        <div class="container">
-            <h1>GPX Route Loader</h1>
-            <label>
-                <input type="file" id="gpxInput" accept=".gpx" style="display:none">
-                <button id="uploadBtn" type="button">Select GPX File</button>
-                <script>
-                    // Store the file path in localStorage for access in calculating.html
-                    gpxInput.addEventListener('change', () => {
-                        if (gpxInput.files.length > 0) {
-                            // Store the file name (full path is not accessible for security reasons)
-                            localStorage.setItem('gpxFileName', gpxInput.files[0].name);
-                        }
-                    });
-                </script>
-            </label>
-            <button id="continueBtn" type="button" disabled onclick="window.location.href='route-cycling.html'">Continue</button>
-        </div>
-        <script>
-            const gpxInput = document.getElementById('gpxInput');
-            const uploadBtn = document.getElementById('uploadBtn');
-            const continueBtn = document.getElementById('continueBtn');
-
-            uploadBtn.addEventListener('click', () => {
-                gpxInput.click();
-            });
-
-            gpxInput.addEventListener('change', () => {
-                if (gpxInput.files.length > 0) {
-                    continueBtn.disabled = false;
-                } else {
-                    continueBtn.disabled = true;
-                }
-            });
-        </script>
+    <div class="container">
+        <h1 id="welcome-message" style="text-align:center;margin-bottom:1.5em;color:#764ba2;font-size:2em;"></h1>
+        <button id="continueBtn" type="button">Continue</button>
+    </div>
+    <script>
+        // Creative welcome messages
+        const welcomeMessages = [
+            "Welcome back! Hope your ride today was unforgettable.",
+            "How was the route? Hope you conquered every climb!",
+            "Glad you're back! Did you discover any new paths?",
+            "Hope the wind was at your back and the sun on your face!",
+            "Did you enjoy the scenery? Every kilometer is a memory!",
+            "Welcome! Hope you found joy in every pedal stroke today.",
+            "How did it go? May your legs feel strong and your heart happy!",
+            "Hope you had a smooth ride and a few good laughs!",
+            "Welcome! Did you meet any friendly faces on the road?",
+            "Hope you enjoyed the challenge and the reward at the end!",
+            "Welcome back! May your ride stories be worth sharing.",
+            "Did you spot any wildlife or beautiful landscapes today?",
+            "Hope you felt the thrill of the descent and the pride of the climb!",
+            "Welcome! Did you find a new favorite stretch of road?",
+            "Hope you enjoyed the rhythm of the ride and the peace of the journey.",
+            "Welcome back! May your cycling spirit be recharged.",
+            "Did you enjoy the fresh air and freedom on two wheels?",
+            "Hope you made the most of every moment out there!",
+            "Welcome! Did you capture any great photos or memories?",
+            "Hope your ride was a celebration of movement and discovery!",
+            "Welcome back! May your legs recover quickly and your mind stay inspired.",
+            "Did you enjoy the company or the solitude of your ride?",
+            "Hope you found beauty in the little things along the way!",
+            "Welcome! Did you try a new route or revisit an old favorite?",
+            "Hope you felt strong, free, and alive on your journey!",
+            "Welcome back! May your ride fuel your dreams and your next adventure.",
+            "Did you enjoy the taste of victory at the top of the hill?",
+            "Hope you found peace in the rhythm of your pedals.",
+            "Welcome! Did you enjoy the post-ride treat? You earned it!",
+            "Hope you felt the connection between you, your bike, and the world!",
+            "Welcome back! May your ride stories grow with every journey.",
+            "Did you enjoy the changing weather and the changing views?",
+            "Hope you found a moment to pause and appreciate the ride.",
+            "Welcome! Did you feel the satisfaction of a ride well done?",
+            "Hope you made new memories and maybe new friends today!",
+            "Welcome back! May your cycling adventures continue to inspire you.",
+            "Did you enjoy the quiet roads and the busy trails alike?",
+            "Hope you felt the joy of movement and the thrill of exploration!",
+            "Welcome! Did you push your limits or simply enjoy the ride?",
+            "Hope you found a new reason to love cycling today!",
+            "Welcome back! May your ride be the highlight of your day.",
+            "Did you enjoy the sunrise, sunset, or everything in between?",
+            "Hope you felt gratitude for the journey and excitement for the next!",
+            "Welcome! Did you celebrate a personal best or a peaceful moment?",
+            "Hope you found what you were looking for out there!",
+            "Welcome back! May your ride memories last long after the finish.",
+            "Did you enjoy the challenge, the fun, and the freedom?",
+            "Hope you felt the magic of cycling today!"
+        ];
+        document.getElementById('welcome-message').textContent = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+        document.getElementById('continueBtn').addEventListener('click', function() {
+            window.location.href = 'route-cycling.html';
+        });
+    </script>
 </body>
 </html>
