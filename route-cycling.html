@@ -15,10 +15,12 @@
             height: 100vh;
             width: 100vw;
             box-sizing: border-box;
+            font-size: calc(1.8vh + 0.5vw);
         }
         .container {
             width: 100vw;
             height: 99vh;
+            max-width: 100vw;
             margin: 0px;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -39,31 +41,39 @@
             padding: 0;
             width: 100%;
             height: 100%;
+            max-width: 100vw;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            box-sizing: border-box;
         }
         #map {
             width: 100%;
             max-width: 700px;
+            min-width: 240px;
             height: 40vh;
             min-height: 200px;
+            max-height: 50vh;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
             margin-bottom: 5px;
+            box-sizing: border-box;
         }
         #elevation-profile {
             width: 100%;
             max-width: 700px;
+            min-width: 240px;
             height: 20vh;
             min-height: 120px;
+            max-height: 30vh;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
             background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
             margin: 0 0 5px 0;
+            box-sizing: border-box;
         }
         .loading {
             text-align: center;
@@ -89,16 +99,17 @@
             padding: 0;
             background: none;
             border-radius: 0;
-            font-size: 14px;
+            font-size: calc(1.5vh + 0.5vw);
             color: #475569;
             width: 100%;
             max-width: 700px;
+            min-width: 240px;
             box-sizing: border-box;
         }
         .route-info > div {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
-            padding: 3px;
-            border-radius: 8px;
+            padding: 5px;
+            border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -110,9 +121,12 @@
         .route-info span {
             font-weight: 700;
             color: #ff6b6b;
-            font-size: 14px;
+            font-size: calc(2vh + 0.5vw);
             display: block;
-            margin-top: 5px;
+            margin-top: 8px;
+        }
+        h1 {
+            font-size: calc(2.5vh + 1vw);
         }
         .lorem-text {
             margin: 10px 0 0 0;
