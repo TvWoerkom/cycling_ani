@@ -5,36 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPX Route Viewer</title>
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            margin: 0; 
-            padding: 5px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 960px;
-            width:  540px;
+            min-height: 100vh;
+            min-width: 100vw;
+            height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
         }
         .container {
-            width: 540px;
-            height: 960px;
-            margin: 5px;
+            width: 100vw;
+            height: 99vh;
+            margin: 0px;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            border-radius: 10px;
+            border-radius: 0;
             box-shadow: 0 20px 24px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            border: 5px solid rgba(255, 255, 255, 0.2);
-            padding: 0px;
+            border: 8px solid #764ba2;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
         }
         .map-container {
             background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
             border-radius: 10px;
-            padding: 0px;
-            height: 100%;
+            padding: 0;
             width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
         #map {
             width: 100%;
-            height: 400px;
+            max-width: 700px;
+            height: 40vh;
+            min-height: 200px;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -42,7 +56,9 @@
         }
         #elevation-profile {
             width: 100%;
-            height: 200px;
+            max-width: 700px;
+            height: 20vh;
+            min-height: 120px;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -66,7 +82,8 @@
         }
         .route-info {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
             gap: 10px;
             margin-bottom: 10px;
             padding: 0;
@@ -74,24 +91,28 @@
             border-radius: 0;
             font-size: 14px;
             color: #475569;
+            width: 100%;
+            max-width: 700px;
+            box-sizing: border-box;
         }
         .route-info > div {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
-            padding: 5px;
-            border-radius: 12px;
+            padding: 3px;
+            border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            min-width: 0;
         }
 
         .route-info span {
             font-weight: 700;
             color: #ff6b6b;
-            font-size: 18px;
+            font-size: 14px;
             display: block;
-            margin-top: 8px;
+            margin-top: 5px;
         }
         .lorem-text {
             margin: 10px 0 0 0;
@@ -158,14 +179,14 @@
                 // Extract the route name from the GPX file
                 const nameElement = xml.getElementsByTagName('name')[0];
                 const routeName = nameElement ? nameElement.textContent : 'Unnamed Route';
-                // Create and insert the title element above the route stats
+                // Create and insert the title element above the route stats, always inside the white container
                 const titleElement = document.createElement('h1');
                 titleElement.textContent = routeName;
                 titleElement.style.textAlign = 'center';
-                titleElement.style.margin = '10px 0';
+                titleElement.style.margin = '8vh 0 1vh 0';
                 titleElement.style.color = '#475569';
                 titleElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                titleElement.style.fontSize = '20px';
+                titleElement.style.fontSize = '15px';
                 // Extract coordinates
                 const lats = trkpts.map(pt => parseFloat(pt.getAttribute('lat')));
                 const lons = trkpts.map(pt => parseFloat(pt.getAttribute('lon')));
@@ -736,11 +757,12 @@
                 gpxFileName.textContent = '';
                 return;
             }
-            gpxFileName.textContent = `Selected: ${file.name}`;
+            // Remove the select button and filename text immediately after file selection
+            gpxUploadBtn.style.display = 'none';
+            gpxFileName.textContent = '';
             const reader = new FileReader();
             reader.onload = function(evt) {
-                const text = evt.target.result;
-                showGpxRouteFromText(text);
+                showGpxRouteFromText(evt.target.result);
             };
             reader.readAsText(file);
         });
