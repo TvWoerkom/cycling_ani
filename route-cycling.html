@@ -198,11 +198,11 @@
 <body>
     <div class="container">
         <div class="map-container">
-            <div id="output" class="loading">Select a GPX file to view the route.</div>
+            <div id="output" class="loading">Selecteer een GPX-bestand om de route te bekijken.</div>
             <div id="gpx-upload-area" style="text-align:center; margin:1vh 0;">
                 <input type="file" id="gpxInput" accept=".gpx" style="display:none">
                 <label for="gpxInput">
-                    <button id="gpxUploadBtn" type="button" style="background:#764ba2;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:1.1em;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:background 0.2s;">Select GPX File</button>
+                    <button id="gpxUploadBtn" type="button" style="background:#764ba2;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:1.1em;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:background 0.2s;">Selecteer GPX-bestand</button>
                 </label>
                 <span id="gpxFileName" style="display:block;margin-top:12px;color:#475569;font-size:1em;"></span>
             </div>
@@ -232,7 +232,7 @@
                 const xml = parser.parseFromString(text, "application/xml");
                 const trkpts = Array.from(xml.getElementsByTagName('trkpt'));
                 if (trkpts.length < 2) {
-                    output.innerHTML = '<div class="error">Not enough track points in GPX file.</div>';
+                    output.innerHTML = '<div class="error">Niet genoeg trackpunten in GPX-bestand.</div>';
                     return;
                 }
                 // Extract the route name from the GPX file
@@ -253,6 +253,7 @@
                 titleElement.style.transform = 'translateX(-50%)';
                 titleElement.style.width = 'auto';
                 titleElement.style.zIndex = '10';
+                titleElement.style.textShadow = '2px 2px 8px #64748b';
 
                 // Extract coordinates
                 const lats = trkpts.map(pt => parseFloat(pt.getAttribute('lat')));
@@ -272,13 +273,13 @@
                     const totalMinutes = Math.round(stats.timeDiffMs / (1000 * 60));
                     const hours = Math.floor(totalMinutes / 60);
                     const minutes = totalMinutes % 60;
-                    durationText = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                    durationText = hours > 0 ? `${hours}u ${minutes}m` : `${minutes}m`;
                 }
                 routeInfo.innerHTML = `
-                    <div>Total Distance <span id="distance-value">0.0 km</span></div>
-                    <div>Elevation Gain <span id="elevation-value">0 m</span></div>
-                    <div>Moving Speed <span id="speed-value">0.0 km/h</span></div>
-                    <div>Total Duration <span id="duration-value">0m</span></div>
+                    <div>Totale afstand <span id="distance-value">0.0 km</span></div>
+                    <div>Positieve hoogtemeters <span id="elevation-value">0 m</span></div>
+                    <div>Gemiddelde snelheid <span id="speed-value">0.0 km/u</span></div>
+                    <div>Totale duur <span id="duration-value">0m</span></div>
                 `;
                 window.routeStats = {
                     totalDistance: stats.totalDist,
@@ -299,7 +300,7 @@
                 createRouteMap(lats, lons, trkpts);
                 startSynchronizedAnimation(trkpts, elevationCanvas);
             } catch (e) {
-                output.innerHTML = `<div class="error">Error loading GPX file: ${e.message}</div>`;
+                output.innerHTML = `<div class="error">Fout bij het laden van GPX-bestand: ${e.message}</div>`;
             }
         }
 
@@ -415,13 +416,8 @@
                 cumulativeElevationGains.push(totalElevationGain);
             }
 
-            // Calculate time-based animation duration
-            let animationDuration = 10000; // Default 10 seconds
-            if (timestamps.length > 1) {
-                const totalTimeMs = timestamps[timestamps.length - 1] - timestamps[0];
-                // Scale to reasonable animation duration (10-30 seconds)
-                animationDuration = Math.min(Math.max(totalTimeMs / 100, 10000), 30000);
-            }
+            // Stel de animatieduur altijd in op 15 seconden
+            let animationDuration = 15000; // 15 seconden
 
             // Calculate elevation profile coordinates
             const minEle = Math.min(...elevations);
@@ -554,7 +550,7 @@
                     if (window.routeStats) {
                         document.getElementById('distance-value').textContent = `${window.routeStats.totalDistance.toFixed(1)} km`;
                         document.getElementById('elevation-value').textContent = `${window.routeStats.totalElevation} m`;
-                        document.getElementById('speed-value').textContent = `${window.routeStats.avgSpeed.toFixed(1)} km/h`;
+                        document.getElementById('speed-value').textContent = `${window.routeStats.avgSpeed.toFixed(1)} km/u`;
                         document.getElementById('duration-value').textContent = window.routeStats.durationText;
                     }
                     // Wait 2 seconds, then restart animation
@@ -644,14 +640,14 @@
                         const actualSpeedKmh = distanceDiff / timeDiffHours;
                         // Ensure reasonable bounds for cycling speed
                         const boundedSpeed = Math.max(1, Math.min(actualSpeedKmh, 80));
-                        document.getElementById('speed-value').textContent = `${boundedSpeed.toFixed(1)} km/h`;
+                        document.getElementById('speed-value').textContent = `${boundedSpeed.toFixed(1)} km/u`;
                         tracker.lastSpeedUpdate = now;
                     }
                 }
             } else if (shouldUpdateSpeed && window.routeStats && currentDistance > 0) {
                 // Fallback for very beginning of animation (only every 0.5 seconds)
                 const progressSpeed = window.routeStats.avgSpeed * Math.min(elapsed / (animationDuration * 0.1), 1);
-                document.getElementById('speed-value').textContent = `${progressSpeed.toFixed(1)} km/h`;
+                document.getElementById('speed-value').textContent = `${progressSpeed.toFixed(1)} km/u`;
                 tracker.lastSpeedUpdate = now;
             }
         }
