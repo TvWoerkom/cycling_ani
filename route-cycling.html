@@ -186,6 +186,11 @@
                 font-size: 1em;
             }
         }
+        #map, #elevation-profile {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
     </style>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -237,7 +242,7 @@
                 const titleElement = document.createElement('h1');
                 titleElement.textContent = routeName;
                 titleElement.style.textAlign = 'center';
-                titleElement.style.color = '#475569';
+                titleElement.style.color = '#ff6b6b';
                 titleElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
                 titleElement.style.fontSize = '18px';
                 titleElement.style.margin = '0';
@@ -281,6 +286,7 @@
                     avgSpeed: stats.avgSpeedMoving,
                     durationText: durationText
                 };
+                // Create map and elevation profile containers before animation
                 const mapDiv = document.createElement('div');
                 mapDiv.id = 'map';
                 const elevationCanvas = document.createElement('canvas');
@@ -367,13 +373,13 @@
         }
 
         function startSynchronizedAnimation(trkpts, canvas) {
+            window.statsUpdateTracker = undefined;
+            const mapRefs = window.mapReferences;
             const ctx = canvas.getContext('2d');
-            
             // Set canvas size
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width;
             canvas.height = rect.height;
-
             // Extract elevations and timestamps
             const elevations = trkpts.map(pt => {
                 const eleElement = pt.getElementsByTagName('ele')[0];
@@ -421,7 +427,7 @@
             const minEle = Math.min(...elevations);
             const maxEle = Math.max(...elevations);
             const eleRange = maxEle - minEle;
-            
+
             let interval;
             if (eleRange <= 50) interval = 10;
             else if (eleRange <= 100) interval = 20;
@@ -429,14 +435,31 @@
             else if (eleRange <= 500) interval = 50;
             else if (eleRange <= 1000) interval = 200;
             else interval = 500;
-            
+
             const minGrid = Math.floor(minEle / interval) * interval;
             const maxGrid = Math.ceil(maxEle / interval) * interval;
             const gridRange = maxGrid - minGrid;
-            
+
+            // Draw static grid and labels ONCE before animation loop
             const statsCalculator = new GpxStatsCalculator();
             const stats = statsCalculator.calculateStats(trkpts);
             const totalDistanceStats = stats.totalDist;
+            function drawStaticElevationProfile() {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any transforms
+                ctx.globalAlpha = 1;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // Draw background gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(1, '#f8fafc');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Draw grid and axis labels
+                drawElevationProfileElements(ctx, 1, minEle, maxEle, elevations.length, totalDistanceStats);
+                ctx.restore();
+            }
+            drawStaticElevationProfile();
 
             const profilePixels = elevations.map((ele, i) => {
                 const marginLeft = 40;
@@ -456,25 +479,16 @@
             function animate() {
                 const elapsed = Date.now() - startTime;
                 const progress = Math.min(elapsed / animationDuration, 1);
-                const currentIndex = Math.floor(progress * (trkpts.length - 1));
+                // Ensure currentIndex starts at 0 and increments smoothly
+                const currentIndex = Math.max(0, Math.floor(progress * (trkpts.length - 1)));
 
                 // Update statistics in real-time
                 updateRouteStatistics(currentIndex, cumulativeDistances, cumulativeElevationGains, timestamps, animationDuration, elapsed);
 
-                // Clear canvas
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // Redraw static grid/labels before drawing moving elevation
+                drawStaticElevationProfile();
 
-                // Draw background gradient
-                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                gradient.addColorStop(0, '#ffffff');
-                gradient.addColorStop(1, '#f8fafc');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Draw grid
-                drawElevationProfileElements(ctx, 1, minEle, maxEle, elevations.length, totalDistanceStats);
-
-                // Draw elevation profile up to current position
+                // Draw moving elevation profile up to current position
                 if (currentIndex > 0 && profilePixels.length > 0) {
                     const currentProfilePixels = profilePixels.slice(0, currentIndex + 1);
                     
@@ -521,13 +535,13 @@
                 }
 
                 // Update moving dot on map
-                if (window.mapReferences && currentIndex < window.mapReferences.routeCoords.length) {
-                    const currentCoord = window.mapReferences.routeCoords[currentIndex];
-                    window.mapReferences.movingDot.setLatLng(currentCoord);
+                if (mapRefs && currentIndex < mapRefs.routeCoords.length) {
+                    const currentCoord = mapRefs.routeCoords[currentIndex];
+                    mapRefs.movingDot.setLatLng(currentCoord);
                     
                     // Update traveled line to show orange path behind the dot
-                    const traveledCoords = window.mapReferences.routeCoords.slice(0, currentIndex + 1);
-                    window.mapReferences.traveledLine.setLatLngs(traveledCoords);
+                    const traveledCoords = mapRefs.routeCoords.slice(0, currentIndex + 1);
+                    mapRefs.traveledLine.setLatLngs(traveledCoords);
                 }
 
                 // Continue animation or finish
@@ -543,13 +557,15 @@
                         document.getElementById('speed-value').textContent = `${window.routeStats.avgSpeed.toFixed(1)} km/h`;
                         document.getElementById('duration-value').textContent = window.routeStats.durationText;
                     }
+                    // Wait 2 seconds, then restart animation
+                    setTimeout(() => {
+                        startSynchronizedAnimation(trkpts, canvas);
+                    }, 2000);
                 }
             }
 
-            // Start animation after a brief delay
-            setTimeout(() => {
-                animate();
-            }, 1000);
+            // Start animation immediately (no delay)
+            animate();
         }
 
         function updateRouteStatistics(currentIndex, cumulativeDistances, cumulativeElevationGains, timestamps, animationDuration, elapsed) {
