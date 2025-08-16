@@ -77,7 +77,7 @@
         .loading {
             text-align: center;
             padding: 40px;
-            color: #64748b;
+            color: #fff;
             font-size: 16px;
         }
         .error {
@@ -278,7 +278,7 @@
                 routeInfo.innerHTML = `
                     <div>Totale afstand <span id="distance-value">0.0 km</span></div>
                     <div>Positieve hoogtemeters <span id="elevation-value">0 m</span></div>
-                    <div>Gemiddelde snelheid <span id="speed-value">0.0 km/u</span></div>
+                    <div>Actuele snelheid <span id="speed-value">0.0 km/u</span></div>
                     <div>Totale duur <span id="duration-value">0m</span></div>
                 `;
                 window.routeStats = {
@@ -550,12 +550,30 @@
                     if (window.routeStats) {
                         document.getElementById('distance-value').textContent = `${window.routeStats.totalDistance.toFixed(1)} km`;
                         document.getElementById('elevation-value').textContent = `${window.routeStats.totalElevation} m`;
-                        document.getElementById('speed-value').textContent = `${window.routeStats.avgSpeed.toFixed(1)} km/u`;
+                        // Show gemiddelde snelheid only at pause
+                        document.querySelector('.route-info > div:nth-child(3)').innerHTML = `Gemiddelde snelheid <span id="speed-value">${window.routeStats.avgSpeed.toFixed(1)} km/u</span>`;
                         document.getElementById('duration-value').textContent = window.routeStats.durationText;
                     }
-                    // Wait 2 seconds, then restart animation
+                    // Wait 2 seconds with final stats and location
                     setTimeout(() => {
-                        startSynchronizedAnimation(trkpts, canvas);
+                        // Reset stats and dots and canvases
+                        if (window.mapReferences) {
+                            // Reset traveled line and moving dot to start
+                            window.mapReferences.traveledLine.setLatLngs([]);
+                            window.mapReferences.movingDot.setLatLng(window.mapReferences.routeCoords[0]);
+                        }
+                        // Reset stats display to zero
+                        document.getElementById('distance-value').textContent = `0.0 km`;
+                        document.getElementById('elevation-value').textContent = `0 m`;
+                        document.querySelector('.route-info > div:nth-child(3)').innerHTML = `Actuele snelheid <span id="speed-value">0.0 km/u</span>`;
+                        document.getElementById('duration-value').textContent = `0m`;
+                        // Clear elevation profile canvas
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        drawStaticElevationProfile();
+                        // Wait 2 more seconds before restarting animation
+                        setTimeout(() => {
+                            startSynchronizedAnimation(trkpts, canvas);
+                        }, 2000);
                     }, 2000);
                 }
             }
